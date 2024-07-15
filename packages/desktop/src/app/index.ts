@@ -8,11 +8,15 @@ const handleReady = async () => {
     width: 800,
     height: 600,
     webPreferences: {
+      devTools: !app.isPackaged,
       preload: resolve(distPath, 'app', 'preload.cjs'),
     },
   })
 
+
   window.loadURL(!app.isPackaged ? 'http://localhost:5173/' : 'app://./')
+
+  if (!app.isPackaged) window.webContents.openDevTools()
 
   app.on('window-all-closed', () => app.quit())
 }
