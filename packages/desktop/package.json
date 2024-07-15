@@ -1,0 +1,57 @@
+{
+  "name": "@pear/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build --force"
+  },
+  "main": "./dist/app/index.mjs",
+  "exports": {
+    "./preload": "./dist/app/preload.mjs"
+  },
+  "build": {
+    "appId": "com.example.app",
+    "files": [
+      "dist/**/*"
+    ],
+    "directories": {
+      "output": "build"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@primevue/themes": "^4.0.0",
+    "pinia": "^2.1.7",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.0.0",
+    "vue": "^3.4.29",
+    "vue-router": "^4.3.3"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/mime": "^4.0.0",
+    "mime": "^4.0.4",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "@vue/tsconfig": "^0.5.1",
+    "autoprefixer": "^10.4.19",
+    "electron": "^31.2.0",
+    "electron-builder": "^24.13.3",
+    "npm-run-all2": "^6.2.0",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.5",
+    "tailwindcss-primeui": "^0.3.4",
+    "vite": "^5.3.1",
+    "vite-plugin-vue-devtools": "^7.3.1",
+    "vue-tsc": "^2.0.21"
+  },
+  "peerDependencies": {
+    "electron": "*"
+  }
+}
