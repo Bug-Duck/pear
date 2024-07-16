@@ -10,22 +10,19 @@ import Avatar from 'primevue/avatar'
       class="navbar w-[4rem] bg-[#ffffff0a] h-full flex justify-between flex-col py-4 sidebar-border"
     >
       <div class="w-full flex flex-col items-center">
-        <div class="gap-3 flex flex-col items-center">
-          <Avatar />
-        </div>
-        <div class="gap-2 flex mt-5 flex-col">
-          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
-          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
-          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
-          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
+        <div class="gap-2 flex flex-col">
+          <Button as="router-link" icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" to="/" />
+          <Button as="router-link" icon="pi pi-address-book" aria-label="Contact" text v-tooltip="'Contact'" />
+          <Button as="router-link" icon="pi pi-bookmark" aria-label="Bookmark" text v-tooltip="'Bookmark'" />
         </div>
       </div>
       <div class="w-full flex flex-col items-center">
         <Button
-          icon="pi pi-cog"
+        as="router-link" icon="pi pi-cog"
           aria-label="Settings"
           text
           v-tooltip="'Settings'"
+          to="/settings"
         />
       </div>
     </div>
