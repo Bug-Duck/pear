@@ -8,6 +8,14 @@ const handleReady = async () => {
   const window = new BrowserWindow({
     width: 800,
     height: 600,
+    minHeight: 600,
+    minWidth: 800,
+    frame: true,
+    titleBarStyle: 'hidden',
+  titleBarOverlay: {
+    color: '#121212ff',
+    symbolColor: '#f0f0f0'
+  },
     webPreferences: {
       devTools: !app.isPackaged,
       preload: resolve(distPath, 'app', 'preload.cjs'),
@@ -15,6 +23,7 @@ const handleReady = async () => {
   })
 
   Menu.setApplicationMenu(null)
+
 
   window.loadURL(!app.isPackaged ? 'http://localhost:5173/' : 'app://./')
 

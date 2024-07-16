@@ -5,8 +5,8 @@ import MessageInput from './MessageInput.vue'
 </script>
 
 <template>
-  <div class="flex-1 h-full relative">
-    <div class="w-auto max-h-full overflow-y-scroll scrollbar z-20 p-10 pb-[5rem]">
+  <div class="flex-1 h-full relative overflow-hidden">
+    <div class="w-auto max-h-full overflow-y-scroll scrollbar z-20 px-10 pb-[7rem] mt-[30px]">
       <div></div>
       <div>
         a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>
@@ -36,12 +36,13 @@ import MessageInput from './MessageInput.vue'
 
 .scrollbar::-webkit-scrollbar {
   background: #ffffff0a;
-  width: 8px;
+  width: 7px;
 }
 
 .scrollbar::-webkit-scrollbar-thumb {
   background: #ffffffa0;
   border-radius: 10px;
+  cursor: grab;
 }
 
 .scrollbar::-webkit-scrollbar-track {

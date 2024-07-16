@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  --color-background: rgb(18 18 18);
+}
+
 #app {
   margin: 0;
   font-weight: normal;
