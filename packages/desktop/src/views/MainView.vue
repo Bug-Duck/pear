@@ -8,11 +8,11 @@ import MessageInput from './MessageInput.vue'
   <div class="flex-1 h-full relative overflow-hidden">
     <div class="w-auto max-h-full overflow-y-scroll scrollbar z-20 px-10 pb-[7rem] mt-[30px]">
       <div></div>
-      <div>
+      <!-- <div>
         a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>
-      </div>
+      </div> -->
 
-      <MessageInput class="w-[37.5rem] z-50 drawer absolute bottom-bar" />
+      <MessageInput class="min-w-[38rem] w-[50%] z-50 drawer absolute bottom-bar" />
     </div>
   </div>
 </template>

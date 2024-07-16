@@ -29,7 +29,7 @@ const handleReady = async () => {
 
   window.once('ready-to-show', () => window.show())
 
-  // if (!app.isPackaged) window.webContents.openDevTools()
+  if (!app.isPackaged) window.webContents.openDevTools()
 
 
   app.on('window-all-closed', () => app.quit())

@@ -1,13 +1,14 @@
 <template>
   <Toolbar>
     <template #start>
-      <Button icon="pi pi-plus" class="mr-2" severity="secondary" text />
-      <Button icon="pi pi-images" class="mr-2" severity="secondary" text />
-      <Button icon="pi pi-upload" severity="secondary" text />
+      <Button icon="pi pi-plus" class="mr-2" severity="secondary" text v-tooltip.top="'Editor'" />
+      <Button icon="pi pi-images" class="mr-2" severity="secondary" text v-tooltip.top="'Picture'" />
+      <Button icon="pi pi-upload" severity="secondary" text v-tooltip.top="'File'"  />
+
     </template>
 
     <template #center>
-      <Textarea rows="1" cols="35" placeholder="Message" class="resize-none" />
+      <InputText placeholder="Message" class="resize-none flex-1" wrap="off"/>
     </template>
 
     <template #end>
@@ -20,7 +21,7 @@
 import { ref } from 'vue'
 import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
-import Textarea from 'primevue/textarea'
+import InputText from 'primevue/inputtext'
 const items = ref([
   {
     label: 'Update',
@@ -32,3 +33,10 @@ const items = ref([
   },
 ])
 </script>
+
+
+<style scoped>
+.p-toolbar:deep(.p-toolbar-center) {
+  flex: 1;
+}
+</style>
