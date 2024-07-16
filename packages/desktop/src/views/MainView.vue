@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import MessageInput from './MessageInput.vue'
+import MessageList from './MessageList.vue'
 import TopMenubar from './TopMenubar.vue'
 import FriendsList from './FriendsList.vue'
 </script>
@@ -8,8 +9,65 @@ import FriendsList from './FriendsList.vue'
 <template>
   <div class="flex-1 h-full relative">
     <div class="h-full w-auto max-h-full overflow-y-scroll scrollbar z-20">
-      <div>
-        a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />
+      <div class="mb-16">
+        <MessageList :messages="[
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+          {
+            name: '野兽先辈',
+            id: '114514',
+            date: '1145.1.4',
+            time: '11:45',
+            content: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊'
+          },
+        ]"/>
       </div>
 
       <MessageInput class="w-[37.5rem] z-50 drawer absolute bottom-bar" />
