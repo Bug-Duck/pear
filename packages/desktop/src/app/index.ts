@@ -1,4 +1,4 @@
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow, app, Menu } from 'electron'
 import { resolve } from 'path'
 import { distPath, registerAppProtocol } from './protocol'
 import { registerRemote } from './remote'
@@ -14,6 +14,7 @@ const handleReady = async () => {
     },
   })
 
+  Menu.setApplicationMenu(null)
 
   window.loadURL(!app.isPackaged ? 'http://localhost:5173/' : 'app://./')
 

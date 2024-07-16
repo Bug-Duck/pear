@@ -7,11 +7,11 @@
     </template>
 
     <template #center>
-      <Textarea rows="1" cols="35" :auto-resize="false" placeholder="Message" :resizable="false" />
+      <Textarea rows="1" cols="35" placeholder="Message" class="resize-none" />
     </template>
 
     <template #end>
-      <SplitButton label="Send" :model="items"></SplitButton>
+      <Button icon="pi pi-send" label="Send"></Button>
     </template>
   </Toolbar>
 </template>
@@ -19,14 +19,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Toolbar from 'primevue/toolbar'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import Badge from 'primevue/badge'
 import Button from 'primevue/button'
-import SplitButton from 'primevue/splitbutton'
 import Textarea from 'primevue/textarea'
-import FloatLabel from 'primevue/floatlabel'
-
 const items = ref([
   {
     label: 'Update',

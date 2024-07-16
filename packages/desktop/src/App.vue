@@ -1,12 +1,43 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
+import Button from 'primevue/button'
+import Avatar from 'primevue/avatar'
 </script>
 
 <template>
-  <RouterView />
+  <div class="flex w-full h-full items-start">
+    <div
+      class="navbar w-[4rem] bg-[#ffffff0a] h-full flex justify-between flex-col py-4 sidebar-border"
+    >
+      <div class="w-full flex flex-col items-center">
+        <div class="gap-3 flex flex-col items-center">
+          <Avatar />
+        </div>
+        <div class="gap-2 flex mt-5 flex-col">
+          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
+          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
+          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
+          <Button icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" />
+        </div>
+      </div>
+      <div class="w-full flex flex-col items-center">
+        <Button
+          icon="pi pi-cog"
+          aria-label="Settings"
+          text
+          v-tooltip="'Settings'"
+        />
+      </div>
+    </div>
+    <div class="page-container flex-1 h-full overflow-scroll-y">
+      <RouterView />
+    </div>
+  </div>
 </template>
 
 <style scoped>
-
+.sidebar-border {
+  border: 0px solid var(--p-toolbar-border-color);
+  border-right-width: 1px;
+}
 </style>

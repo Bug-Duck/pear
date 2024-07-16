@@ -6,18 +6,46 @@ import FriendsList from './FriendsList.vue'
 </script>
 
 <template>
-  <header class="sticky mt-0">
-    <TopMenubar></TopMenubar>
-  </header>
-  <div>
-    <div class="flex h-full float-left w-[25%] bg-gary-100">
-      <FriendsList class="float-left w-full h-full"/>
-    </div>
-    <div class="float-right min-w-[75%]">
-      <div class="bg-gary-100">
-        www
+  <div class="flex-1 h-full relative">
+    <div class="h-full w-auto max-h-full overflow-y-scroll scrollbar z-20">
+      <div>
+        a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />a<br />
       </div>
-      <MessageInput class="absolute bottom-0 w-[75%]"/>
+
+      <MessageInput class="w-[37.5rem] z-50 drawer absolute bottom-bar" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.drawer {
+  --p-toolbar-border-radius: 0;
+  border-radius: var(--p-content-border-radius) var(--p-content-border-radius) 0
+    0;
+}
+
+.bottom-bar {
+  bottom: 0;
+  left: 50%;
+  overflow: none;
+  transform: translateX(-50%);
+}
+
+.scrollbar {
+}
+
+.scrollbar::-webkit-scrollbar {
+  background: #ffffff0a;
+  width: 8px;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+  background: #ffffffa0;
+  border-radius: 10px;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+  background: #ffffff0a;
+  border-radius: 10px;
+}
+</style>
