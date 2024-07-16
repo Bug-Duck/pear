@@ -12,9 +12,9 @@ console.log(router.currentRoute, routeName)
   <div class="w-full h-[20px] absolute top-0 left-0 drag-region"></div>
   <div class="flex w-full h-full items-start">
     <div
-      class="navbar w-[4rem] bg-[#ffffff15] h-full flex justify-between flex-col py-4 sidebar-border"
+      class="navbar w-[4rem] bg-[#1d1d1d] h-full flex justify-between flex-col py-4 sidebar-border"
     >
-      <div class="w-full flex flex-col items-center">
+      <div class="w-full flex flex-col items-center bg-[transparent]">
         <div class="gap-2 flex flex-col">
           <Button as="router-link" icon="pi pi-home" aria-label="Home" text v-tooltip="'Home'" to="/" :severity="routeName != 'home' ? 'secondary' : null" size="large" />
           <Button as="router-link" icon="pi pi-address-book" aria-label="Contact" text v-tooltip="'Contact'" :severity="routeName != 'contact' ? 'secondary' : null" size="large" />
