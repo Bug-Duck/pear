@@ -5,15 +5,15 @@ import MessageInput from './MessageInput.vue'
 </script>
 
 <template>
-  <div class="flex-1 h-full relative overflow-hidden">
-    <div class="w-auto max-h-full overflow-y-scroll scrollbar z-20 px-10 pb-[7rem] mt-[30px]">
-      <div></div>
+  <div class="flex-1 h-[calc(100%-30px)] relative ">
+    <div class="w-auto h-[calc(100%-10px)] max-[] scrollbar overflow-y-scroll z-20 px-10 pb-[5rem] mt-[30px]">
       <!-- <div>
         a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>a<br>
       </div> -->
 
-      <MessageInput class="min-w-[38rem] w-[50%] z-50 drawer absolute bottom-bar" />
+
     </div>
+    <MessageInput class="min-w-[38rem] w-[50%] z-50 drawer absolute bottom-bar" />
   </div>
 </template>
 
@@ -35,7 +35,7 @@ import MessageInput from './MessageInput.vue'
 }
 
 .scrollbar::-webkit-scrollbar {
-  background: #ffffff0a;
+  background: transparent;
   width: 7px;
 }
 
@@ -46,7 +46,7 @@ import MessageInput from './MessageInput.vue'
 }
 
 .scrollbar::-webkit-scrollbar-track {
-  background: #ffffff0a;
+  background: transparent;
   border-radius: 10px;
 }
 </style>
