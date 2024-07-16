@@ -1,8 +1,8 @@
 <template>
   <Menubar :model="items" class="w-full">
     <template #start>
-      <Avatar image="https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png" shape="circle" />
-      <p class="ml-3 text-lg">Arona</p>
+      <!-- <Avatar image="https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png" shape="circle" />
+      <p class="ml-3 text-lg">Arona</p> -->
     </template>
     <template #item="{ item, props, hasSubmenu, root }">
       <a v-ripple class="flex items-center" v-bind="props.action">
