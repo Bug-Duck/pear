@@ -1,4 +1,6 @@
-import { nanoid } from "nanoid"
+import { createInterface } from 'readline'
+import { nanoid } from 'nanoid'
+import { Readable, Writable } from 'stream'
 
 export type MessageId = string | number
 
@@ -7,8 +9,7 @@ export interface BaseMessage {
   id?: MessageId
 }
 
-export interface InvokeMessage<TParams = never>
-  extends Required<BaseMessage> {
+export interface InvokeMessage<TParams = never> extends Required<BaseMessage> {
   method: string
   params?: TParams
 }
@@ -32,23 +33,35 @@ export type InvokeResponse<T, E = unknown> =
   | InvokeResponseOk<T>
   | InvokeResponseError<E>
 
-export type NotificationMessage<TParams = never> =
-  Omit<InvokeMessage<TParams>, 'id'>
+export type NotificationMessage<TParams = never> = Omit<
+  InvokeMessage<TParams>,
+  'id'
+>
 
-export type Socket = [receiver: (onRecv: (data: Uint8Array) => void) => void, sender: (data: Uint8Array) => void]
+export type Socket = [
+  receiver: (onRecv: (data: Uint8Array | string) => void) => void,
+  sender: (data: Uint8Array) => void,
+]
 
-export type Deferred<T> = Promise<T> & { resolve(value: T): void, reject(error: any): void }
+export type Deferred<T> = Promise<T> & {
+  resolve(value: T): void
+  reject(error: any): void
+}
 
-export type Handler<T extends NotificationMessage<unknown>> = T extends NotificationMessage<infer P> ? (params: P) => void : () => void
+export type Handler<T extends NotificationMessage<unknown>> =
+  T extends NotificationMessage<infer P> ? (params: P) => void : () => void
 
-export type ClientState = {callbacks: Map<MessageId, Deferred<unknown>>
-  handlers: Map<string, Array<(params: unknown) => void>>}
-
+export type ClientState = {
+  callbacks: Map<MessageId, Deferred<unknown>>
+  handlers: Map<string, Array<(params: unknown) => void>>
+}
 
 export type Client = {
   state: ClientState
   call: <T>(method: string, params: unknown) => Promise<T>
-  batch: <T extends [unknown] | unknown[]>(call: [method: string, params: unknown][]) => Promise<T>
+  batch: <T extends [unknown] | unknown[]>(
+    call: [method: string, params: unknown][]
+  ) => Promise<T>
 }
 
 export const deferred = <T>(): Deferred<T> => {
@@ -64,8 +77,12 @@ export const deferred = <T>(): Deferred<T> => {
   return promise
 }
 
-export const createClient = ([onRecv, send]: Socket): Client =>  {
-  const encoder = new TextEncoder(), decoder = new TextDecoder()
+export const useClient = (
+  [onRecv, send]: Socket,
+  errorHandler?: (err: any) => void
+): Client => {
+  const encoder = new TextEncoder(),
+    decoder = new TextDecoder()
   const state: ClientState = { callbacks: new Map(), handlers: new Map() }
 
   const handleMessage = (obj: any) => {
@@ -75,22 +92,32 @@ export const createClient = ([onRecv, send]: Socket): Client =>  {
 
       state.callbacks.delete(obj.id)
       if (obj.error != null) {
-        callback.reject(new Error(`RPC Error (code ${obj.error.code}): ${obj.error.message}`, { cause: obj }))
+        callback.reject(
+          new Error(
+            `RPC Error (code ${obj.error.code}): ${obj.error.message}`,
+            { cause: obj }
+          )
+        )
       } else if (obj.result != null) {
         callback.resolve(obj.result)
       }
     } else if (typeof obj.method == 'string') {
-      state.handlers.get(obj.method)?.forEach(f => f(obj.params))
+      state.handlers.get(obj.method)?.forEach((f) => f(obj.params))
     } else if (Array.isArray(obj)) {
-      obj.forEach(o => handleMessage(o))
+      obj.forEach((o) => handleMessage(o))
     }
   }
 
-  onRecv(data => {
-    const text = decoder.decode(data)
-    const obj = JSON.parse(text)
-
-    handleMessage(obj)
+  onRecv((data) => {
+    try {
+      const text =
+        typeof data == 'string' ? data.trim() : decoder.decode(data).trim()
+      const obj = JSON.parse(text)
+      handleMessage(obj)
+    } catch (err: any) {
+      console.error('RPC client error when recv:', err)
+      errorHandler?.(err)
+    }
   })
 
   return {
@@ -103,7 +130,7 @@ export const createClient = ([onRecv, send]: Socket): Client =>  {
         jsonrpc: '2.0',
         id,
         method,
-        params
+        params,
       } satisfies InvokeMessage<unknown>
 
       const data = encoder.encode(JSON.stringify(message))
@@ -114,12 +141,44 @@ export const createClient = ([onRecv, send]: Socket): Client =>  {
       return d
     },
 
-    //!TODO
-    batch: <T extends [unknown] | unknown[]>(call: [method: string, params: unknown][]) => Promise<T> => {
-      const message = call.map(v => ({
+    batch: <T extends [unknown] | unknown[]>(
+      call: [method: string, params: unknown][]
+    ): Promise<T> => {
+      const message = call.map(([method, params]) => ({
         jsonrpc: '2.0',
-        id:
+        id: nanoid(),
+        method,
+        params,
       }))
-    }
+
+      const data = encoder.encode(JSON.stringify(message))
+
+      const d = message.map(({ id }) => {
+        const d = deferred<unknown>()
+        state.callbacks.set(id, d)
+        return d
+      })
+
+      send(data)
+
+      return Promise.all(d) as any
+    },
   } satisfies Client
+}
+
+export const toSocket = (subout: Readable, subin: Writable): Socket => {
+  const rl = createInterface({
+    input: subout,
+    terminal: false,
+  })
+
+  return [
+    (callback) => {
+      rl.on('line', (input) => callback(input))
+    },
+    (data) => {
+      subin.write(Buffer.from(data))
+      subin.write('\r\n')
+    },
+  ]
 }

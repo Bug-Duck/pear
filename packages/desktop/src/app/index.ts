@@ -4,6 +4,7 @@ import { distPath, registerAppProtocol } from './protocol'
 import { registerRemote } from './remote'
 
 const handleReady = async () => {
+
   const window = new BrowserWindow({
     width: 800,
     height: 600,
@@ -22,6 +23,8 @@ const handleReady = async () => {
 }
 
 const bootstrap = async () => {
+  if (!app.requestSingleInstanceLock()) app.quit()
+
   registerAppProtocol()
   registerRemote()
 
