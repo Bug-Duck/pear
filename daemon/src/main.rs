@@ -1,4 +1,5 @@
 use anyhow::{bail, Ok, Result};
+use dht::init_dht;
 use env_logger::Env;
 
 mod dht;
@@ -15,7 +16,7 @@ async fn main() -> Result<()> {
 
     env_logger::Builder::from_env(Env::default().default_filter_or("trace")).init();
 
-    let key_pair = dht::get_keypair().await?;
+    init_dht("alice".to_string());
 
     Ok(())
 }

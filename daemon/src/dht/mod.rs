@@ -2,39 +2,55 @@ use std::time::Duration;
 
 use anyhow::Ok;
 use dirs;
+use libp2p::kad::{Behaviour, store::MemoryStore};
 use tokio::fs;
 use anyhow::{anyhow, Result};
 use libp2p::swarm::{NetworkBehaviour, StreamProtocol, SwarmEvent};
 use libp2p::{bytes::BufMut, identity, kad, noise, tcp, yamux, PeerId, Swarm};
 
 pub struct dht {
-    swarm: Swarm<dyn NetworkBehaviour>,
+    swarm: Swarm<Behaviour<MemoryStore>>,
 }
 
-pub async fn get_keypair() -> Result<identity::Keypair> {
+struct config {
+    keypair: identity::Keypair,
+    uid: String,
+}
+
+async fn get_config(uid: String) -> Result<config> {
     let mut data_dir = dirs::data_dir().ok_or(anyhow!("failed to get home dir"))?;
     data_dir.push("pear");
     let key_path = data_dir.join("pravite.key");
+    let uid_path = data_dir.join("uid");
     // FIXME: blocking io?
     if data_dir.exists() && key_path.exists() {
         info!("reading keypair in {}", key_path.to_string_lossy());
         let key_bytes = fs::read(key_path).await?;
-        return Ok(identity::Keypair::from_protobuf_encoding(&key_bytes)?)
+        let uid_bytes = fs::read(uid_path).await?;
+        let config = config{
+            keypair: identity::Keypair::from_protobuf_encoding(&key_bytes)?,
+            uid: String::from_utf8(uid_bytes)?,
+        };
+        return Ok(config)
     }
 
     // Create a random key for ourselves.
     info!("creating keypair in {}", key_path.to_string_lossy());
     fs::create_dir_all(data_dir).await?;
-    let key_pair = identity::Keypair::generate_ed25519();
-    let key_bytes = key_pair.to_protobuf_encoding()?;
+    let keypair = identity::Keypair::generate_ed25519();
+    let key_bytes = keypair.to_protobuf_encoding()?;
     fs::write(key_path, key_bytes).await?;
+    fs::write(uid_path, uid.as_bytes()).await?;
 
-    Ok(key_pair)
+    Ok(config{
+        keypair,
+        uid,
+    })
 }
 
-async fn init_dht() -> Result<dht> {
-    let local_key = get_keypair().await?;
-    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key.clone())
+pub async fn init_dht(uid: String) -> Result<dht> {
+    let config = get_config(uid).await?;
+    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(config.keypair)
         .with_tokio()
         .with_tcp(
             tcp::Config::default(),
@@ -55,7 +71,9 @@ async fn init_dht() -> Result<dht> {
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(5)))
         .build();
 
-        Ok(dht {
-            swarm: swarm,
-        })
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+
+    Ok(dht {
+        swarm: swarm,
+    })
 }
