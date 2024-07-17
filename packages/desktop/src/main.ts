@@ -33,6 +33,6 @@ app.directive('ripple', Ripple)
 
 app.mount('#app')
 
-requestIdleCallback(() => {
+queueMicrotask(() => {
     window.getCurrentWindow().show()
 })
