@@ -53,9 +53,9 @@ jobs:
         # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
       - uses: tauri-apps/tauri-action@v0
-        projectPath: ./packages/desktop
         env:
             args: ${{ matrix.args }}
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
+          projectPath: ./packages/desktop
