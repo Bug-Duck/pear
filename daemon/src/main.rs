@@ -2,7 +2,7 @@ use anyhow::Result;
 use env_logger::Env;
 use pear_daemon::init_service;
 
-mod dht;
+mod messaging;
 
 #[macro_use]
 extern crate log;
