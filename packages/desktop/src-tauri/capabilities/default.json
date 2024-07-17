@@ -22,7 +22,6 @@
     "window:allow-set-focus",
     "window:allow-show",
     "window:allow-hide",
-    "window:allow-start-dragging",
-    "decorum:allow-show-snap-overlay"
+    "window:allow-start-dragging"
   ]
 }
