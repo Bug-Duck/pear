@@ -17,13 +17,6 @@ fn main() {
 
       #[cfg(target_os = "macos")]
       {
-          // Make window transparent without privateApi
-          window.make_transparent().unwrap();
-
-          // Set window level
-          // NSWindowLevel: https://developer.apple.com/documentation/appkit/nswindowlevel
-          window.set_window_level(25).unwrap();
-
           apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None)
               .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
       }
