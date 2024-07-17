@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libp2p = { version = "0.53", features = ["tcp", "tls", "dns", "async-std", "noise", "yamux", "websocket", "ping", "macros", "kad", "tokio"] }
+libp2p = { version = "0.53", features = ["tcp", "tls", "dns", "async-std", "noise", "yamux", "websocket", "ping", "macros", "kad", "tokio", "full"] }
+serde = { version = "1", features = ["derive"] }
 futures = "0.3.21"
 async-std = { version = "1.12.0", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
