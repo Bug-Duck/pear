@@ -1,14 +1,20 @@
 use anyhow::{anyhow, Result};
 use dirs::data_local_dir;
+use futures::StreamExt;
 use libp2p::{
     identity::Keypair,
-    kad::{store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig},
+    kad::{
+        store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, Quorum, Record,
+        RecordKey,
+    },
+    multiaddr::Protocol,
     request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport},
-    swarm::NetworkBehaviour,
+    swarm::{NetworkBehaviour, SwarmEvent},
     tls::Config as TlsConfig,
     yamux::Config as YamuxConfig,
-    StreamProtocol, Swarm, SwarmBuilder,
+    Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
 };
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, time::Duration};
 use tokio::fs;
@@ -67,6 +73,22 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
     Ok(PearService { swarm, config })
 }
 
+pub fn is_private_network(addr: &Multiaddr) -> bool {
+    if let Some(Protocol::Ip4(ip)) = addr.iter().next() {
+        if ip.is_private() {
+            return true;
+        }
+
+        return match ip.octets() {
+            [100, b, ..] if b >= 64 && b <= 127 => true,
+            [127, 0, 0, 1] => true,
+            _ => false,
+        };
+    }
+
+    false
+}
+
 impl PearService {
     pub async fn get_config(uid: String) -> Result<Config> {
         let data_dir = data_local_dir()
@@ -96,6 +118,34 @@ impl PearService {
                 keypair: key_bytes,
                 uid,
             })
+        }
+    }
+
+    pub async fn run(&mut self) -> Result<()> {
+        self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+
+        loop {
+            let event = self.swarm.select_next_some().await;
+            match event {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    println!("Listening on {address:?}");
+                    if !is_private_network(&address) {
+                        info!("putting {address:?} to dht");
+                        let addr_record =
+                            Record::new(RecordKey::new(&self.config.uid), address.to_vec());
+                        let res = self
+                            .swarm
+                            .behaviour_mut().kad
+                            .put_record(addr_record, Quorum::One);
+                        if let Err(e) = res {
+                            error!("error putting {address:?} to dht: {e}")
+                        }
+                    }
+                }
+                SwarmEvent::Behaviour(event) => println!("event: {event:?}"),
+                SwarmEvent::ExternalAddrConfirmed { address } => println!("address: {address:?}"),
+                _ => {}
+            }
         }
     }
 }
