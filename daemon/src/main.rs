@@ -1,6 +1,6 @@
-use anyhow::{Ok, Result};
-use dht::init_dht;
+use anyhow::Result;
 use env_logger::Env;
+use pear_daemon::init_service;
 
 mod dht;
 
@@ -16,8 +16,7 @@ async fn main() -> Result<()> {
 
     env_logger::Builder::from_env(Env::default().default_filter_or("trace")).init();
 
-    let mut dht = init_dht("alice".to_string()).await?;
-    dht.main_loop().await;
+    let mut service = init_service().await.expect("Failed to initialize service");
 
-    Ok(())
+    service.run().await
 }
