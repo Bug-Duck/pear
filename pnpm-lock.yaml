@@ -69,6 +69,9 @@ importers:
         specifier: ^4.3.3
         version: 4.4.0(vue@3.4.31(typescript@5.5.3))
     devDependencies:
+      '@tauri-apps/cli':
+        specifier: ^1.6.0
+        version: 1.6.0
       '@tsconfig/node20':
         specifier: ^20.1.4
         version: 20.1.4
