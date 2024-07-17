@@ -34,6 +34,7 @@ jobs:
       - name: Setup
         run: |
           cd ./packages/desktop
+          npm i -g pnpm
           pnpm install
           pnpm i -D @tauri-apps/cli
 
