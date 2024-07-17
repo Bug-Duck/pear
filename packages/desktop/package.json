@@ -28,6 +28,7 @@
   ],
   "dependencies": {
     "@primevue/themes": "^4.0.0",
+    "@tauri-apps/api": "2.0.0-beta.15",
     "nanoid": "^5.0.7",
     "pinia": "^2.1.7",
     "primeicons": "^7.0.0",

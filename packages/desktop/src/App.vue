@@ -12,7 +12,7 @@ console.log(router.currentRoute, routeName)
   <div class="w-full h-[20px] absolute top-0 left-0 drag-region"></div>
   <div class="flex w-full h-full items-start">
     <div
-      class="navbar w-[4rem] bg-[#1d1d1d] h-full flex justify-between flex-col py-4 sidebar-border"
+      class="navbar w-[4rem] bg-[#1d1d1d60] h-full flex justify-between flex-col py-4 sidebar-border"
     >
       <div class="w-full flex flex-col items-center bg-[transparent]">
         <div class="gap-2 flex flex-col">

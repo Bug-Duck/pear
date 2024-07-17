@@ -1,0 +1,48 @@
+{
+  "productName": "Pear Desktop",
+  "version": "0.1.0",
+  "identifier": "io.pear.message",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm run dev",
+    "beforeBuildCommand": "pnpm run build"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+
+    "windows": [
+      {
+        "title": "Pear",
+        "theme": "Dark",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "minWidth": 800,
+        "minHeight": 600,
+        "shadow": true,
+        "transparent": true,
+        "decorations": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

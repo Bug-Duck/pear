@@ -15,6 +15,8 @@ import Aura from '@primevue/themes/aura'
 import 'primeicons/primeicons.css'
 import Ripple from 'primevue/ripple'
 
+import { window } from '@tauri-apps/api'
+
 const app = createApp(App)
 
 app.use(createPinia())
@@ -29,5 +31,8 @@ app.use(PrimeVue, {
 app.directive('tooltip', Tooltip)
 app.directive('ripple', Ripple)
 
-
 app.mount('#app')
+
+requestIdleCallback(() => {
+    window.getCurrentWindow().show()
+})

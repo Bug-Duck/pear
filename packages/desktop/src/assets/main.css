@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  --color-background: rgb(18 18 18);
+  --color-background: rgb(18 18 18 / 25%);
   font-size: 16px;
 }
 
@@ -31,7 +31,7 @@ html, body {
 body {
   min-height: 100vh;
   color: var(--color-text);
-  background: #121212A0;
+  background: var(--color-background);
   transition:
     color 0.5s,
     background-color 0.5s;
