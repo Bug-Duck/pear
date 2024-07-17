@@ -2,22 +2,27 @@ use std::time::Duration;
 
 use anyhow::Ok;
 use dirs;
+use futures::StreamExt;
 use libp2p::kad::{Behaviour, store::MemoryStore};
+use libp2p::multiaddr::Protocol;
+use libp2p::Multiaddr;
 use tokio::fs;
 use anyhow::{anyhow, Result};
-use libp2p::swarm::{NetworkBehaviour, StreamProtocol, SwarmEvent};
-use libp2p::{bytes::BufMut, identity, kad, noise, tcp, yamux, PeerId, Swarm};
+use libp2p::swarm::SwarmEvent;
+use libp2p::{identity, kad, noise, tcp, yamux, Swarm};
 
-pub struct dht {
+pub struct DHT {
     swarm: Swarm<Behaviour<MemoryStore>>,
+    config: Config,
 }
 
-struct config {
+#[derive(Clone)]
+struct Config {
     keypair: identity::Keypair,
     uid: String,
 }
 
-async fn get_config(uid: String) -> Result<config> {
+async fn get_config(uid: String) -> Result<Config> {
     let mut data_dir = dirs::data_dir().ok_or(anyhow!("failed to get home dir"))?;
     data_dir.push("pear");
     let key_path = data_dir.join("pravite.key");
@@ -27,7 +32,7 @@ async fn get_config(uid: String) -> Result<config> {
         info!("reading keypair in {}", key_path.to_string_lossy());
         let key_bytes = fs::read(key_path).await?;
         let uid_bytes = fs::read(uid_path).await?;
-        let config = config{
+        let config = Config{
             keypair: identity::Keypair::from_protobuf_encoding(&key_bytes)?,
             uid: String::from_utf8(uid_bytes)?,
         };
@@ -42,15 +47,15 @@ async fn get_config(uid: String) -> Result<config> {
     fs::write(key_path, key_bytes).await?;
     fs::write(uid_path, uid.as_bytes()).await?;
 
-    Ok(config{
+    Ok(Config{
         keypair,
         uid,
     })
 }
 
-pub async fn init_dht(uid: String) -> Result<dht> {
+pub async fn init_dht(uid: String) -> Result<DHT> {
     let config = get_config(uid).await?;
-    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(config.keypair)
+    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(config.clone().keypair)
         .with_tokio()
         .with_tcp(
             tcp::Config::default(),
@@ -73,7 +78,49 @@ pub async fn init_dht(uid: String) -> Result<dht> {
 
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    Ok(dht {
+    Ok(DHT {
         swarm: swarm,
+        config: config,
     })
+}
+
+fn is_pravite(address: &Multiaddr) -> bool {
+    if let Some(Protocol::Ip4(ip)) = address.iter().next() {
+        if ip.is_private() {
+            return true
+        }
+        // filter out nat addrs, ref: https://en.wikipedia.org/wiki/Private_network
+        return match ip.octets() {
+            [100, b, ..] if b >= 64 && b <= 127 => true,
+            [127, 0, 0, 1] => true,
+            _ => false,
+        }
+    }
+
+    false
+}
+
+impl DHT {
+    pub async fn main_loop(&mut self) {
+        loop {
+            match self.swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    println!("Listening on {address:?}");
+                    if !is_pravite(&address) {
+                        info!("putting {address:?} to dht");
+                        let addr_record = kad::Record::new(kad::RecordKey::new(&self.config.uid), address.to_vec());
+                        let res = self.swarm
+                            .behaviour_mut()
+                            .put_record(addr_record, kad::Quorum::One);
+                        if let Err(e) = res {
+                            error!("error putting {address:?} to dht: {e}")
+                        }
+                    }
+                },
+                SwarmEvent::Behaviour(event) => println!("event: {event:?}"),
+                SwarmEvent::ExternalAddrConfirmed { address } => println!("address: {address:?}"),
+                _ => {}
+            }
+        }
+    }
 }
