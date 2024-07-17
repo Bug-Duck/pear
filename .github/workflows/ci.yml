@@ -58,3 +58,4 @@ jobs:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
           projectPath: ./packages/desktop
+          tauriScript: pnpm
