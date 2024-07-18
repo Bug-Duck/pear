@@ -1,3 +1,5 @@
+pub mod connect;
+
 use anyhow::{anyhow, Result};
 use dirs::data_local_dir;
 use futures::StreamExt;
@@ -5,24 +7,49 @@ use libp2p::{
     identity::Keypair, kad::{
         store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, Quorum, Record,
         RecordKey,
-    }, mdns, multiaddr::Protocol, request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tls::Config as TlsConfig, yamux::Config as YamuxConfig, Multiaddr, StreamProtocol, Swarm, SwarmBuilder
+    },
+    mdns::{tokio::Tokio, Behaviour as MdnsBehaviour, Event as MdnsEvent},
+    multiaddr::Protocol,
+    request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport},
+    swarm::{NetworkBehaviour, SwarmEvent},
+    tls::Config as TlsConfig,
+    yamux::Config as YamuxConfig,
+    Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use std::{error::Error, time::Duration};
-use tokio::fs;
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+    time::Duration,
+};
+use tokio::{fs, sync::RwLock};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum PearReq {}
+pub enum PearReq {
+    /// Try connecting to a peer
+    Connect(PeerId, Multiaddr),
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Commands {
+    GetUser,
+    Login,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
-pub enum PearRes {}
+pub enum PearRes {
+    /// Received connecting request, true for accept, false for refuse
+    Connect(bool),
+}
 
 #[derive(NetworkBehaviour)]
 pub struct PearBehaviour {
     pub resq: ResqBehaviour<PearReq, PearRes>,
     // FIXME: `MemoryStore` just for now, should be replaced with a custom store
     pub kad: KadBehaviour<MemoryStore>,
-    pub mdns: mdns::tokio::Behaviour,
+    pub mdns: MdnsBehaviour<Tokio>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -31,9 +58,26 @@ pub struct Config {
     pub uid: String,
 }
 
-pub struct PearService {
+pub struct PearServiceInner {
     pub swarm: Swarm<PearBehaviour>,
     pub config: Config,
+}
+
+#[derive(Clone)]
+pub struct PearService(pub Arc<RwLock<PearServiceInner>>);
+
+impl Deref for PearService {
+    type Target = Arc<RwLock<PearServiceInner>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for PearService {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
@@ -59,15 +103,16 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
                     Default::default(),
                 );
 
-                let mdns =
-                    mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())?;
+                let mdns = MdnsBehaviour::new(Default::default(), key.public().to_peer_id())?;
 
                 Ok(PearBehaviour { resq, kad, mdns })
             })?
             .with_swarm_config(|config| config.with_idle_connection_timeout(Duration::from_secs(5)))
             .build();
 
-    Ok(PearService { swarm, config })
+    let inner = Arc::new(RwLock::new(PearServiceInner { swarm, config }));
+
+    Ok(PearService(inner))
 }
 
 pub fn is_private_network(addr: &Multiaddr) -> bool {
@@ -119,10 +164,10 @@ impl PearService {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        self.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        self.write().await.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
         loop {
-            let event = self.swarm.select_next_some().await;
+            let event = self.write().await.swarm.select_next_some().await;
             self.handle_event(event).await;
         }
     }
@@ -134,8 +179,10 @@ impl PearService {
                 if !is_private_network(&address) {
                     info!("putting {address:?} to dht");
                     let addr_record =
-                        Record::new(RecordKey::new(&self.config.uid), address.to_vec());
+                        Record::new(RecordKey::new(&self.read().await.config.uid), address.to_vec());
                     let res = self
+                        .write()
+                        .await
                         .swarm
                         .behaviour_mut().kad
                         .put_record(addr_record, Quorum::One);
@@ -144,13 +191,20 @@ impl PearService {
                     }
                 }
             }
-            SwarmEvent::Behaviour(PearBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+            SwarmEvent::Behaviour(PearBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
                 for (peer_id, multiaddr) in list {
                     println!("mDNS discovered a new peer: {peer_id}");
-                    self.swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
+                    self.write().await.swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
                 }
             },
             SwarmEvent::Behaviour(event) => info!("event: {event:?}"),
+            _ => {}
+        }
+    }
+
+    pub async fn handle_commands(&mut self, command: Commands) {
+        match command {
+            Commands::GetUser => {}
             _ => {}
         }
     }
