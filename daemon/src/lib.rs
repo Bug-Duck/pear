@@ -5,26 +5,27 @@ use dirs::data_local_dir;
 use futures::StreamExt;
 use libp2p::{
     identity::Keypair, kad::{
-        store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, Quorum, Record,
-        RecordKey,
-    },
-    mdns::{tokio::Tokio, Behaviour as MdnsBehaviour, Event as MdnsEvent},
-    multiaddr::Protocol,
-    request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport},
-    swarm::{NetworkBehaviour, SwarmEvent},
-    tls::Config as TlsConfig,
-    yamux::Config as YamuxConfig,
-    Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+        self, store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, GetRecordOk, Quorum, Record, RecordKey
+    }, mdns::{self, tokio::Tokio, Behaviour as MdnsBehaviour, Event as MdnsEvent}, multiaddr::Protocol, request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tls::Config as TlsConfig, yamux::Config as YamuxConfig, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::{hash_map, HashMap},
     error::Error,
     ops::{Deref, DerefMut},
     sync::Arc,
     time::Duration,
 };
-use tokio::{fs, sync::RwLock};
+use tokio::{
+    fs,
+    sync::{mpsc, oneshot, RwLock},
+};
+
+#[derive(Debug)]
+enum Command {
+    GetUser { uid: String },
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PearReq {
@@ -61,6 +62,12 @@ pub struct Config {
 pub struct PearServiceInner {
     pub swarm: Swarm<PearBehaviour>,
     pub config: Config,
+    pub command_channel_tx: mpsc::Sender<Command>,
+    command_channel_rx: mpsc::Receiver<Command>,
+    command_result_channel_tx: mpsc::Sender<anyhow::Result<String>>,
+    pub command_result_channel_rx: mpsc::Receiver<anyhow::Result<String>>,
+
+    pending_dial: HashMap<String, oneshot::Sender<Result<Multiaddr, Box<dyn Error + Send>>>>,
 }
 
 #[derive(Clone)]
@@ -110,7 +117,19 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
             .with_swarm_config(|config| config.with_idle_connection_timeout(Duration::from_secs(5)))
             .build();
 
-    let inner = Arc::new(RwLock::new(PearServiceInner { swarm, config }));
+    let (tx, mut rx) = mpsc::channel(32);
+    let (res_tx, mut res_rx) = mpsc::channel(32);
+
+    let inner = Arc::new(RwLock::new(PearServiceInner {
+        swarm,
+        config,
+        command_channel_rx: rx,
+        command_channel_tx: tx,
+        command_result_channel_rx: res_rx,
+        command_result_channel_tx: res_tx,
+
+        pending_dial: Default::default(),
+    }));
 
     Ok(PearService(inner))
 }
@@ -164,7 +183,10 @@ impl PearService {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        self.write().await.swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        self.write()
+            .await
+            .swarm
+            .listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
         loop {
             let event = self.write().await.swarm.select_next_some().await;
@@ -178,34 +200,77 @@ impl PearService {
                 info!("Listening on {address:?}");
                 if !is_private_network(&address) {
                     info!("putting {address:?} to dht");
-                    let addr_record =
-                        Record::new(RecordKey::new(&self.read().await.config.uid), address.to_vec());
+                    let addr_record = Record::new(
+                        RecordKey::new(&self.read().await.config.uid),
+                        address.to_vec(),
+                    );
                     let res = self
                         .write()
                         .await
                         .swarm
-                        .behaviour_mut().kad
+                        .behaviour_mut()
+                        .kad
                         .put_record(addr_record, Quorum::One);
                     if let Err(e) = res {
                         error!("error putting {address:?} to dht: {e}")
                     }
                 }
             }
-            SwarmEvent::Behaviour(PearBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
+            // mdns events
+            SwarmEvent::Behaviour(PearBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                 for (peer_id, multiaddr) in list {
                     println!("mDNS discovered a new peer: {peer_id}");
-                    self.write().await.swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
+                    self.write()
+                        .await
+                        .swarm
+                        .behaviour_mut()
+                        .kad
+                        .add_address(&peer_id, multiaddr);
                 }
-            },
+            }
+            // dht events
+            SwarmEvent::Behaviour(PearBehaviourEvent::Kad(
+                kad::Event::OutboundQueryProgressed {
+                    result: kad::QueryResult::GetRecord(Ok(GetRecordOk::FoundRecord(record))),
+                    ..
+                },
+            )) => {
+                info!("get record from dht: {:?}", record);
+                let uid = String::from_utf8(record.record.key.to_vec()).unwrap();
+                let multiaddr = Multiaddr::try_from(record.record.value).unwrap();
+                if let Some(sender) = self.write().await.pending_dial.remove(&uid) {
+                    sender.send(Ok(multiaddr)).unwrap();
+                }
+            }
+            SwarmEvent::Behaviour(PearBehaviourEvent::Kad(
+                kad::Event::OutboundQueryProgressed {
+                    result: kad::QueryResult::GetRecord(Err(err)),
+                    ..
+                },
+            )) => {
+                error!("Failed to GetRecord: {}", err);
+            }
             SwarmEvent::Behaviour(event) => info!("event: {event:?}"),
             _ => {}
         }
     }
 
-    pub async fn handle_commands(&mut self, command: Commands) {
+    async fn handle_command(&mut self, command: Command) {
         match command {
-            Commands::GetUser => {}
-            _ => {}
+            Command::GetUser { uid } => {
+                self.write().await.swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_record(kad::RecordKey::new(&uid));
+                let (sender, receiver) = oneshot::channel();
+                if let hash_map::Entry::Vacant(e) = self.write().await.pending_dial.entry(uid) {
+                    e.insert(sender);
+                }
+                match receiver.await {
+                    Ok(_) => (),
+                    Err(_) => (),
+                }
+            }
         }
     }
 }
