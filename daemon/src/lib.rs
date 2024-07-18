@@ -1,16 +1,28 @@
+mod command;
 pub mod connect;
 
 use anyhow::{anyhow, Result};
+use command::*;
 use dirs::data_local_dir;
 use futures::StreamExt;
 use libp2p::{
-    identity::Keypair, kad::{
-        self, store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, GetRecordOk, Quorum, Record, RecordKey
-    }, mdns::{self, tokio::Tokio, Behaviour as MdnsBehaviour, Event as MdnsEvent}, multiaddr::Protocol, request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tls::Config as TlsConfig, yamux::Config as YamuxConfig, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder
+    identity::Keypair,
+    kad::{
+        self, store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, GetRecordOk,
+        Quorum, Record, RecordKey,
+    },
+    mdns::{self, tokio::Tokio, Behaviour as MdnsBehaviour, Event as MdnsEvent},
+    multiaddr::Protocol,
+    request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport},
+    swarm::{NetworkBehaviour, SwarmEvent},
+    tls::Config as TlsConfig,
+    yamux::Config as YamuxConfig,
+    Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
+    str,
     collections::{hash_map, HashMap},
     error::Error,
     ops::{Deref, DerefMut},
@@ -21,11 +33,6 @@ use tokio::{
     fs,
     sync::{mpsc, oneshot, RwLock},
 };
-
-#[derive(Debug)]
-enum Command {
-    GetUser { uid: String },
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PearReq {
@@ -64,10 +71,11 @@ pub struct PearServiceInner {
     pub config: Config,
     pub command_channel_tx: mpsc::Sender<Command>,
     command_channel_rx: mpsc::Receiver<Command>,
-    command_result_channel_tx: mpsc::Sender<anyhow::Result<String>>,
-    pub command_result_channel_rx: mpsc::Receiver<anyhow::Result<String>>,
+    command_response_channel_tx: mpsc::Sender<CommandResp>,
+    pub command_response_channel_rx: mpsc::Receiver<CommandResp>,
 
-    pending_dial: HashMap<String, oneshot::Sender<Result<Multiaddr, Box<dyn Error + Send>>>>,
+    pending_dht: HashMap<String, oneshot::Sender<Result<Multiaddr, Box<dyn Error + Send>>>>,
+    pending_dial: HashMap<Multiaddr, oneshot::Sender<Result<(), Box<dyn Error + Send>>>>,
 }
 
 #[derive(Clone)]
@@ -99,7 +107,7 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
             .with_behaviour(|key| {
                 let mut kad_config = KadConfig::default();
                 kad_config.set_record_ttl(None);
-                kad_config.set_query_timeout(Duration::from_secs(5 * 60));
+                kad_config.set_query_timeout(Duration::from_secs(5));
 
                 let kad_store = MemoryStore::new(key.public().to_peer_id());
                 let kad =
@@ -125,9 +133,10 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
         config,
         command_channel_rx: rx,
         command_channel_tx: tx,
-        command_result_channel_rx: res_rx,
-        command_result_channel_tx: res_tx,
+        command_response_channel_rx: res_rx,
+        command_response_channel_tx: res_tx,
 
+        pending_dht: Default::default(),
         pending_dial: Default::default(),
     }));
 
@@ -238,7 +247,7 @@ impl PearService {
                 info!("get record from dht: {:?}", record);
                 let uid = String::from_utf8(record.record.key.to_vec()).unwrap();
                 let multiaddr = Multiaddr::try_from(record.record.value).unwrap();
-                if let Some(sender) = self.write().await.pending_dial.remove(&uid) {
+                if let Some(sender) = self.write().await.pending_dht.remove(&uid) {
                     sender.send(Ok(multiaddr)).unwrap();
                 }
             }
@@ -249,6 +258,24 @@ impl PearService {
                 },
             )) => {
                 error!("Failed to GetRecord: {}", err);
+                if let Some(sender) = self.write().await.pending_dht.remove(str::from_utf8(&err.key().to_vec()).unwrap()) {
+                    sender.send(Err(Box::new(err))).unwrap();
+                }
+            }
+            // connection events
+            SwarmEvent::ConnectionEstablished {
+                peer_id, endpoint, ..
+            } => {
+                if endpoint.is_dialer() {
+                    if let Some(sender) = self
+                        .write()
+                        .await
+                        .pending_dial
+                        .remove(endpoint.get_remote_address())
+                    {
+                        let _ = sender.send(Ok(()));
+                    }
+                }
             }
             SwarmEvent::Behaviour(event) => info!("event: {event:?}"),
             _ => {}
@@ -258,17 +285,64 @@ impl PearService {
     async fn handle_command(&mut self, command: Command) {
         match command {
             Command::GetUser { uid } => {
-                self.write().await.swarm
+                self.write()
+                    .await
+                    .swarm
                     .behaviour_mut()
                     .kad
                     .get_record(kad::RecordKey::new(&uid));
                 let (sender, receiver) = oneshot::channel();
-                if let hash_map::Entry::Vacant(e) = self.write().await.pending_dial.entry(uid) {
+                if let hash_map::Entry::Vacant(e) =
+                    self.write().await.pending_dht.entry(uid.clone())
+                {
                     e.insert(sender);
+                } else {
+                    // duplicated command
+                    return;
                 }
+                let (sender_dial, receiver_dial) = oneshot::channel();
                 match receiver.await {
-                    Ok(_) => (),
-                    Err(_) => (),
+                    Ok(addr_res) => {
+                        if let Ok(addr) = addr_res {
+                            if let Err(err) = self.write().await.swarm.dial(addr.clone()) {
+                                error!("{}", err);
+                            }
+                            if let hash_map::Entry::Vacant(e) =
+                                self.write().await.pending_dial.entry(addr)
+                            {
+                                e.insert(sender_dial);
+                            }
+                        } else {
+                            return;
+                        }
+                    }
+                    Err(err) => {
+                        error!("{}", err);
+                        self.read().await.command_response_channel_tx.send(
+                            CommandResp::GetUserResp {
+                                uid: uid,
+                                exists: false,
+                                connected: false,
+                            },
+                        ).await.unwrap();
+                        return;
+                    }
+                }
+
+                match receiver_dial.await {
+                    Ok(_) => {
+                        self.read().await.command_response_channel_tx.send(
+                            CommandResp::GetUserResp {
+                                uid: uid,
+                                exists: true,
+                                connected: true,
+                            },
+                        ).await.unwrap();
+                    }
+                    Err(err) => {
+                        error!("{}", err);
+                        return;
+                    }
                 }
             }
         }
