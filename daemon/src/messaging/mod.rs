@@ -100,7 +100,8 @@ fn insert_message_to_doc(doc: &mut AutoCommit, list: &ObjId, message: Message) -
 
 
 impl MessageState {
-    async fn send_message(self, uid: String, content: String) -> anyhow::Result<()>  {
+    // FIXME: sync message maybe needs to be generated multiple times
+    async fn commit_message_and_get_sync_state(self, uid: String, content: String) -> anyhow::Result<Option<Vec<u8>>>  {
         let ref mut locked_state = self.write().unwrap();
         match locked_state.get_mut(&uid) {
             Some(item) => {
@@ -114,10 +115,7 @@ impl MessageState {
                     content,
                     timestamp: Utc::now().timestamp(),
                 })?;
-                if let Some(msg) = item.doc.sync().generate_sync_message(&mut item.state) {
-                    // TODO: send to libp2p
-                }
-                Ok(())
+                Ok(item.doc.sync().generate_sync_message(&mut item.state).map(|msg| msg.encode()))
             },
             None => Err(anyhow!("no matching uid found")),
         }

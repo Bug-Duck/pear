@@ -2,17 +2,10 @@ use anyhow::{anyhow, Result};
 use dirs::data_local_dir;
 use futures::StreamExt;
 use libp2p::{
-    identity::Keypair,
-    kad::{
+    identity::Keypair, kad::{
         store::MemoryStore, Behaviour as KadBehaviour, Config as KadConfig, Quorum, Record,
         RecordKey,
-    },
-    multiaddr::Protocol,
-    request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport},
-    swarm::{NetworkBehaviour, SwarmEvent},
-    tls::Config as TlsConfig,
-    yamux::Config as YamuxConfig,
-    Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
+    }, mdns, multiaddr::Protocol, request_response::{json::Behaviour as ResqBehaviour, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tls::Config as TlsConfig, yamux::Config as YamuxConfig, Multiaddr, StreamProtocol, Swarm, SwarmBuilder
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -29,6 +22,7 @@ pub struct PearBehaviour {
     pub resq: ResqBehaviour<PearReq, PearRes>,
     // FIXME: `MemoryStore` just for now, should be replaced with a custom store
     pub kad: KadBehaviour<MemoryStore>,
+    pub mdns: mdns::tokio::Behaviour,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -65,7 +59,10 @@ pub async fn init_service() -> Result<PearService, Box<dyn Error>> {
                     Default::default(),
                 );
 
-                Ok(PearBehaviour { resq, kad })
+                let mdns =
+                    mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())?;
+
+                Ok(PearBehaviour { resq, kad, mdns })
             })?
             .with_swarm_config(|config| config.with_idle_connection_timeout(Duration::from_secs(5)))
             .build();
@@ -126,26 +123,35 @@ impl PearService {
 
         loop {
             let event = self.swarm.select_next_some().await;
-            match event {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    println!("Listening on {address:?}");
-                    if !is_private_network(&address) {
-                        info!("putting {address:?} to dht");
-                        let addr_record =
-                            Record::new(RecordKey::new(&self.config.uid), address.to_vec());
-                        let res = self
-                            .swarm
-                            .behaviour_mut().kad
-                            .put_record(addr_record, Quorum::One);
-                        if let Err(e) = res {
-                            error!("error putting {address:?} to dht: {e}")
-                        }
+            self.handle_event(event).await;
+        }
+    }
+
+    async fn handle_event(&mut self, event: SwarmEvent<PearBehaviourEvent>) {
+        match event {
+            SwarmEvent::NewListenAddr { address, .. } => {
+                info!("Listening on {address:?}");
+                if !is_private_network(&address) {
+                    info!("putting {address:?} to dht");
+                    let addr_record =
+                        Record::new(RecordKey::new(&self.config.uid), address.to_vec());
+                    let res = self
+                        .swarm
+                        .behaviour_mut().kad
+                        .put_record(addr_record, Quorum::One);
+                    if let Err(e) = res {
+                        error!("error putting {address:?} to dht: {e}")
                     }
                 }
-                SwarmEvent::Behaviour(event) => println!("event: {event:?}"),
-                SwarmEvent::ExternalAddrConfirmed { address } => println!("address: {address:?}"),
-                _ => {}
             }
+            SwarmEvent::Behaviour(PearBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                for (peer_id, multiaddr) in list {
+                    println!("mDNS discovered a new peer: {peer_id}");
+                    self.swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
+                }
+            },
+            SwarmEvent::Behaviour(event) => info!("event: {event:?}"),
+            _ => {}
         }
     }
 }
