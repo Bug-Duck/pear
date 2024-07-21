@@ -1,0 +1,19 @@
+[package]
+name = "pear-service"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+debug = []
+
+[dependencies]
+libp2p = { version = "0.53.2", features = ["tls", "tcp", "full", "kad", "json", "mdns", "identify", "quic", "upnp", "websocket", "noise", "relay", "tokio", "yamux"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+env_logger = { version = "0.11.3" }
+log = { version = "0.4.22" }
+anyhow = { version = "1" }
+futures = { version = "0.3.30", features = [] }
+dirs = { version = "5" }
+macros = { path = "macros" }
