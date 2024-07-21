@@ -128,7 +128,7 @@ pub trait Handler {
   fn handle(&self, event : SwarmEvent<PearBehaviourEvent>, state : PearContext) -> BoxFuture<()>;
 }
 
-type PearCallback = Box<dyn FnOnce(&mut Swarm<PearBehaviour>) + 'static>;
+type PearCallback = Box<dyn FnOnce(&mut PearService) + 'static>;
 pub struct PearService {
   pub handlers : Vec<Box<dyn Handler + 'static>>,
   pub context : PearContext,
@@ -191,7 +191,7 @@ impl PearService {
           }
         },
         Some(task) = self.spawner_r.recv() => {
-          task(&mut self.swarm);
+          task(&mut self);
         }
       }
     }
